@@ -2,7 +2,7 @@
 $host = 'localhost';
 $db   = 'it_asset_db';
 $user = 'root';
-$pass = 'Mkk@123';
+$pass = '';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
