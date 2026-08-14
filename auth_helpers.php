@@ -61,7 +61,7 @@ function renderFooter() {
                 <p class="text-xs text-slate-500 mt-0.5">&copy; ' . $year . ' All rights reserved.</p>
             </div>
             <div class="text-xs text-slate-400">
-                Developed by <span class="font-bold text-indigo-400">Ruwan Rathnayaka</span>[cite: 19]
+                Developed by <span class="font-bold text-indigo-400">Ruwan Rathnayaka</span>
             </div>
         </div>
     </footer>';

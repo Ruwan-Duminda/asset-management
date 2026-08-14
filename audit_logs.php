@@ -107,5 +107,6 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
             </table>
         </div>
     </main>
+    <?php renderFooter(); ?>
 </body>
 </html>

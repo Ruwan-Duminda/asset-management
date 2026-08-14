@@ -166,5 +166,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded shadow transition">Save Asset</button>
         </form>
     </main>
+    <?php renderFooter(); ?>
 </body>
 </html>

@@ -161,5 +161,6 @@ try {
             </form>
         </div>
     </main>
+    <?php renderFooter(); ?>
 </body>
 </html>

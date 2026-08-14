@@ -683,5 +683,6 @@ $assets = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
             }
         });
     </script>
+    <?php renderFooter(); ?>
 </body>
 </html>

@@ -389,5 +389,6 @@ $maintenanceLogs = $pdo->query("
             document.getElementById('editMaintenanceModal').classList.remove('hidden');
         }
     </script>
+    <?php renderFooter(); ?>
 </body>
 </html>

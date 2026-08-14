@@ -722,5 +722,6 @@ $employees = $pdo->query("
             }
         });
     </script>
+    <?php renderFooter(); ?>
 </body>
 </html>

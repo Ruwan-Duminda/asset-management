@@ -103,5 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-2 rounded">Save Changes</button>
         </form>
     </main>
+    <?php renderFooter(); ?>
 </body>
 </html>

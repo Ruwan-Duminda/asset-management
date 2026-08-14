@@ -163,5 +163,6 @@ $specs = json_decode($asset['specs'] ?? '{}', true);
             window.onload = function() { window.print(); }
         }
     </script>
+    <?php renderFooter(); ?>
 </body>
 </html>
