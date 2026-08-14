@@ -1,0 +1,23 @@
+name: Deploy PHP Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Update application
+        shell: powershell
+        run: |
+          Set-Location "C:\wamp64\www\asset-management"
+          git fetch origin
+          git reset --hard origin/main
+
+      - name: Deployment completed
+        shell: powershell
+        run: |
+          Write-Host "Deployment completed successfully."
