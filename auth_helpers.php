@@ -50,4 +50,20 @@ function renderNav() {
         </div>
     </nav>';
 }
+
+function renderFooter() {
+    $year = date('Y');
+    echo '
+    <footer class="bg-slate-900 text-slate-400 mt-auto py-6 border-t border-slate-800 text-sm">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
+            <div>
+                <p class="font-semibold text-slate-200">IT Asset Management System</p>
+                <p class="text-xs text-slate-500 mt-0.5">&copy; ' . $year . ' All rights reserved.</p>
+            </div>
+            <div class="text-xs text-slate-400">
+                Developed by <span class="font-bold text-indigo-400">Ruwan Rathnayaka</span>[cite: 19]
+            </div>
+        </div>
+    </footer>';
+}
 ?>

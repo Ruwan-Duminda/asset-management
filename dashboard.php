@@ -237,5 +237,6 @@ $activeMaintenance = $pdo->query("
         </div>
 
     </main>
+    <body class="bg-slate-100 font-sans text-slate-800 min-h-screen flex flex-col">
 </body>
 </html>
