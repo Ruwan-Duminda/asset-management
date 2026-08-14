@@ -447,7 +447,7 @@ $employees = $pdo->query("
                             <span id="doc_employee_id" class="font-mono font-bold text-indigo-600"></span>
                         </div>
                         <div>
-                            <span class="text-xs text-slate-400 block">Department:</span>
+                            <span class="text-xs text-slate-400 block">Division:</span>
                             <span id="doc_dept_name" class="font-semibold text-slate-800"></span>
                         </div>
                         <div>
