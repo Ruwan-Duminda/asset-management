@@ -386,7 +386,7 @@ $employees = $pdo->query("
                             <input type="text" name="job_title" id="edit_job_title" class="w-full border p-2 rounded text-sm">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase mb-1">Department</label>
+                            <label class="block text-xs font-bold uppercase mb-1">Division</label>
                             <select name="department_id" id="edit_department_id" class="w-full border p-2 rounded text-sm bg-white">
                                 <option value="">-- None / Unassigned --</option>
                                 <?php foreach ($departments as $d): ?>
