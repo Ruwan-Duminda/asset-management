@@ -320,7 +320,7 @@ $employees = $pdo->query("
                             <input type="text" name="job_title" placeholder="e.g. Officer" class="w-full border p-2 rounded text-sm">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase mb-1">Department *</label>
+                            <label class="block text-xs font-bold uppercase mb-1">Division *</label>
                             <select name="department_id" required class="w-full border p-2 rounded text-sm bg-white">
                                 <?php foreach ($departments as $d): ?>
                                     <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
