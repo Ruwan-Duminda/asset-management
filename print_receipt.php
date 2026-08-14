@@ -86,7 +86,7 @@ $specs = json_decode($asset['specs'] ?? '{}', true);
                     <p class="font-semibold text-slate-900"><?= htmlspecialchars($asset['emp_code'] ?? 'N/A') ?></p>
                 </div>
                 <div>
-                    <span class="text-slate-500">Department:</span>
+                    <span class="text-slate-500">Division:</span>
                     <p class="font-semibold text-slate-900"><?= htmlspecialchars($asset['department_name'] ?? 'N/A') ?></p>
                 </div>
                 <div>
