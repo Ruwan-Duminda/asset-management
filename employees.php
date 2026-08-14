@@ -213,7 +213,7 @@ $employees = $pdo->query("
                     <tr>
                         <th class="p-3">Emp ID</th>
                         <th class="p-3">Full Name</th>
-                        <th class="p-3">Department</th>
+                        <th class="p-3">Division</th>
                         <th class="p-3">Job Title / Office</th>
                         <th class="p-3">Email & Phone</th>
                         <th class="p-3 text-center">Status</th>
