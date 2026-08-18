@@ -218,9 +218,7 @@ $employees = $pdo->query("
                         <th class="p-3">Email & Phone</th>
                         <th class="p-3 text-center">Status</th>
                         <th class="p-3 text-center">Assigned Devices</th>
-                        <?php if (in_array($userRole, ['admin', 'editor'])): ?>
-                            <th class="p-3 text-right">Actions</th>
-                        <?php endif; ?>
+                        <th class="p-3 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100" id="empTableBody">
@@ -266,15 +264,20 @@ $employees = $pdo->query("
                                     💻 <?= $e['assigned_assets_count'] ?> Device(s)
                                 </button>
                             </td>
-                            <?php if (in_array($userRole, ['admin', 'editor'])): ?>
-                                <td class="p-3 text-right">
+                            <td class="p-3 text-right space-x-1 whitespace-nowrap">
+                                <button onclick='printEmployeeDocument(<?= htmlspecialchars(json_encode($e), ENT_QUOTES, "UTF-8") ?>)' 
+                                        class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded font-medium transition"
+                                        title="Print Equipment Handover Form">
+                                    🖨️ Print
+                                </button>
+                                <?php if (in_array($userRole, ['admin', 'editor'])): ?>
                                     <button onclick='openEditEmpModal(<?= htmlspecialchars(json_encode($e), ENT_QUOTES, "UTF-8") ?>)' 
                                             class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2.5 py-1 rounded font-medium transition"
                                             title="Edit Employee">
                                         ✏️ Edit
                                     </button>
-                                </td>
-                            <?php endif; ?>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -485,45 +488,45 @@ $employees = $pdo->query("
                 </div>
 
                 <!-- Legal/Signature Section for Printed Document (Handover & Return) -->
-<div class="pt-6 border-t mt-6 space-y-6">
-    <p class="text-xs text-slate-500 italic">
-        I hereby acknowledge the receipt/return of the IT assets listed above. Handed over assets are in good working condition unless noted otherwise. All assets must be handled in accordance with company IT policies.
-    </p>
+                <div class="pt-6 border-t mt-6 space-y-6">
+                    <p class="text-xs text-slate-500 italic">
+                        I hereby acknowledge the receipt/return of the IT assets listed above. Handed over assets are in good working condition unless noted otherwise. All assets must be handled in accordance with company IT policies.
+                    </p>
 
-    <!-- ISSUE / HANDOVER SIGN-OUT SECTION -->
-    <div>
-        <h4 class="text-xs font-bold uppercase text-slate-600 mb-3 border-b pb-1">1. Issue / Handover Sign-Out</h4>
-        <div class="grid grid-cols-2 gap-12">
-            <div>
-                <div class="border-b border-slate-400 h-8"></div>
-                <p class="text-xs font-bold text-slate-700 mt-1">Employee Signature (Received By)</p>
-                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
-            </div>
-            <div>
-                <div class="border-b border-slate-400 h-8"></div>
-                <p class="text-xs font-bold text-slate-700 mt-1">IT Rep Signature (Issued By)</p>
-                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
-            </div>
-        </div>
-    </div>
+                    <!-- ISSUE / HANDOVER SIGN-OUT SECTION -->
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-600 mb-3 border-b pb-1">1. Issue / Handover Sign-Out</h4>
+                        <div class="grid grid-cols-2 gap-12">
+                            <div>
+                                <div class="border-b border-slate-400 h-8"></div>
+                                <p class="text-xs font-bold text-slate-700 mt-1">Employee Signature (Received By)</p>
+                                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
+                            </div>
+                            <div>
+                                <div class="border-b border-slate-400 h-8"></div>
+                                <p class="text-xs font-bold text-slate-700 mt-1">IT Rep Signature (Issued By)</p>
+                                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- ASSET RETURN SIGN-IN SECTION -->
-    <div>
-        <h4 class="text-xs font-bold uppercase text-slate-600 mb-3 border-b pb-1">2. Asset Return Sign-In</h4>
-        <div class="grid grid-cols-2 gap-12">
-            <div>
-                <div class="border-b border-slate-400 h-8"></div>
-                <p class="text-xs font-bold text-slate-700 mt-1">Employee Signature (Returned By)</p>
-                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
-            </div>
-            <div>
-                <div class="border-b border-slate-400 h-8"></div>
-                <p class="text-xs font-bold text-slate-700 mt-1">IT Rep Signature (Accepted By)</p>
-                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
-            </div>
-        </div>
-    </div>
-</div>  
+                    <!-- ASSET RETURN SIGN-IN SECTION -->
+                    <div>
+                        <h4 class="text-xs font-bold uppercase text-slate-600 mb-3 border-b pb-1">2. Asset Return Sign-In</h4>
+                        <div class="grid grid-cols-2 gap-12">
+                            <div>
+                                <div class="border-b border-slate-400 h-8"></div>
+                                <p class="text-xs font-bold text-slate-700 mt-1">Employee Signature (Returned By)</p>
+                                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
+                            </div>
+                            <div>
+                                <div class="border-b border-slate-400 h-8"></div>
+                                <p class="text-xs font-bold text-slate-700 mt-1">IT Rep Signature (Accepted By)</p>
+                                <p class="text-[11px] text-slate-400">Date: ____ / ____ / ________</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>  
 
                 <div class="flex justify-end pt-2 border-t no-print">
                     <button type="button" onclick="closePrintEmpModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg transition">Close</button>
@@ -535,7 +538,7 @@ $employees = $pdo->query("
     </main>
 
     <script>
-        // Open Employee Full Profile & Printable Handover Modal
+        // Populate modal with employee data
         function openEmployeePrintDetails(emp) {
             let assets = [];
             try {
@@ -583,6 +586,14 @@ $employees = $pdo->query("
             }
 
             document.getElementById('printEmpModal').classList.remove('hidden');
+        }
+
+        // Direct function to populate modal and trigger print window
+        function printEmployeeDocument(emp) {
+            openEmployeePrintDetails(emp);
+            setTimeout(() => {
+                window.print();
+            }, 300);
         }
 
         function closePrintEmpModal() {
