@@ -114,20 +114,36 @@ $employees = $pdo->query("
     <title>ITAM - Employees & Offices</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* CSS Print Formatting */
+        /* Fixed CSS Print Formatting */
         @media print {
             body * {
-                visibility: hidden;
+                visibility: hidden !important;
             }
-            #printSection, #printSection *, #allEmployeesPrintSection, #allEmployeesPrintSection * {
-                visibility: visible;
+            body.print-all #allEmployeesPrintSection,
+            body.print-all #allEmployeesPrintSection * {
+                visibility: visible !important;
+                display: block !important;
+            }
+            body.print-all #allEmployeesPrintSection table {
+                display: table !important;
+            }
+            body.print-all #allEmployeesPrintSection tr {
+                display: table-row !important;
+            }
+            body.print-all #allEmployeesPrintSection th,
+            body.print-all #allEmployeesPrintSection td {
+                display: table-cell !important;
+            }
+            body.print-single #printSection,
+            body.print-single #printSection * {
+                visibility: visible !important;
             }
             #printSection, #allEmployeesPrintSection {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                padding: 20px;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                padding: 20px !important;
                 background: white !important;
                 color: black !important;
             }
@@ -464,7 +480,7 @@ $employees = $pdo->query("
                         <p class="text-xs text-slate-500">Asset Management System &bull; Issued Date: <?= date('F d, Y') ?></p>
                     </div>
                     <div class="flex gap-2 no-print">
-                        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1">
+                        <button onclick="triggerSinglePrint()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1">
                             🖨️ Print Document
                         </button>
                         <button onclick="closePrintEmpModal()" class="text-slate-400 hover:text-black font-bold text-lg px-2">✕</button>
@@ -567,7 +583,7 @@ $employees = $pdo->query("
     </main>
 
     <script>
-        // Print All Visible/Filtered Employees Table
+        // Trigger print for all employees
         function printAllEmployees() {
             const rows = document.querySelectorAll('.emp-row');
             const printTbody = document.getElementById('allEmployeesPrintTbody');
@@ -612,8 +628,16 @@ $employees = $pdo->query("
                 return;
             }
 
-            // Print document view
+            // Set state class for printing all employees
+            document.body.classList.remove('print-single');
+            document.body.classList.add('print-all');
+
             window.print();
+
+            // Cleanup after print dialog completes
+            setTimeout(() => {
+                document.body.classList.remove('print-all');
+            }, 500);
         }
 
         // Open Single Employee Details Modal
@@ -666,11 +690,20 @@ $employees = $pdo->query("
             document.getElementById('printEmpModal').classList.remove('hidden');
         }
 
-        // Print single employee document
+        function triggerSinglePrint() {
+            document.body.classList.remove('print-all');
+            document.body.classList.add('print-single');
+            window.print();
+            setTimeout(() => {
+                document.body.classList.remove('print-single');
+            }, 500);
+        }
+
+        // Print single employee document directly
         function printEmployeeDocument(emp) {
             openEmployeePrintDetails(emp);
             setTimeout(() => {
-                window.print();
+                triggerSinglePrint();
             }, 300);
         }
 
