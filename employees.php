@@ -114,15 +114,15 @@ $employees = $pdo->query("
     <title>ITAM - Employees & Offices</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* CSS rules to format single print document for Employee Equipment Handover */
+        /* CSS Print Formatting */
         @media print {
             body * {
                 visibility: hidden;
             }
-            #printSection, #printSection * {
+            #printSection, #printSection *, #allEmployeesPrintSection, #allEmployeesPrintSection * {
                 visibility: visible;
             }
-            #printSection {
+            #printSection, #allEmployeesPrintSection {
                 position: absolute;
                 left: 0;
                 top: 0;
@@ -133,6 +133,14 @@ $employees = $pdo->query("
             }
             .no-print {
                 display: none !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td {
+                border: 1px solid #cbd5e1 !important;
+                padding: 8px !important;
             }
         }
     </style>
@@ -163,6 +171,9 @@ $employees = $pdo->query("
                 <p class="text-sm text-slate-500">Manage organizational staff, search active records, and export reports.</p>
             </div>
             <div class="flex items-center gap-2">
+                <button onclick="printAllEmployees()" class="bg-sky-600 hover:bg-sky-700 text-white px-3.5 py-2 rounded-lg font-medium text-sm shadow transition flex items-center gap-1.5">
+                    🖨️ Print All Employees
+                </button>
                 <button onclick="exportTableToCSV('employees_list.csv')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg font-medium text-sm shadow transition flex items-center gap-1.5">
                     📥 Export CSV
                 </button>
@@ -227,7 +238,6 @@ $employees = $pdo->query("
                             data-dept="<?= htmlspecialchars($e['dept_name'] ?? 'Unassigned') ?>" 
                             data-status="<?= htmlspecialchars($e['status'] ?? 'Active') ?>">
                             
-                            <!-- Employee Name/ID Clickable Trigger -->
                             <td class="p-3 font-mono font-bold text-indigo-600 cursor-pointer hover:underline cell-id" 
                                 onclick='openEmployeePrintDetails(<?= htmlspecialchars(json_encode($e), ENT_QUOTES, "UTF-8") ?>)'>
                                 <?= htmlspecialchars($e['employee_id']) ?>
@@ -286,6 +296,31 @@ $employees = $pdo->query("
             <div id="noResults" class="hidden p-8 text-center text-slate-400 italic text-sm">
                 No matching employees found for the given search or filter criteria.
             </div>
+        </div>
+
+        <!-- Hidden All-Employees Printable Section -->
+        <div id="allEmployeesPrintSection" class="hidden">
+            <div class="border-b pb-4 mb-4">
+                <h1 class="text-2xl font-bold">Employee Directory Report</h1>
+                <p class="text-xs text-slate-500">Asset Management System &bull; Printed Date: <?= date('F d, Y') ?></p>
+            </div>
+            <table class="w-full text-left text-xs border border-slate-300">
+                <thead class="bg-slate-100">
+                    <tr>
+                        <th class="p-2 border">Emp ID</th>
+                        <th class="p-2 border">Full Name</th>
+                        <th class="p-2 border">Division / Dept</th>
+                        <th class="p-2 border">Job Title</th>
+                        <th class="p-2 border">Office</th>
+                        <th class="p-2 border">Email & Phone</th>
+                        <th class="p-2 border text-center">Status</th>
+                        <th class="p-2 border text-center">Devices Assigned</th>
+                    </tr>
+                </thead>
+                <tbody id="allEmployeesPrintTbody">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
         </div>
 
         <!-- Add Employee Modal -->
@@ -419,11 +454,10 @@ $employees = $pdo->query("
             </div>
         </div>
 
-        <!-- Full Employee Profile & Print Document Modal -->
+        <!-- Single Employee Handover & Print Document Modal -->
         <div id="printEmpModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
             <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 space-y-6 my-8" id="printSection">
                 
-                <!-- Print Document Header -->
                 <div class="flex justify-between items-start border-b pb-4">
                     <div>
                         <h2 class="text-2xl font-bold text-slate-900">IT Equipment Handover Document</h2>
@@ -437,7 +471,6 @@ $employees = $pdo->query("
                     </div>
                 </div>
 
-                <!-- Employee Details Summary Box -->
                 <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <h3 class="text-xs font-bold uppercase text-slate-400 mb-3 tracking-wider">Employee Information</h3>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -468,7 +501,6 @@ $employees = $pdo->query("
                     </div>
                 </div>
 
-                <!-- Assigned Devices List -->
                 <div>
                     <h3 class="text-xs font-bold uppercase text-slate-400 mb-2 tracking-wider">Assigned Devices & Hardware</h3>
                     <table class="w-full text-left text-sm border border-slate-200 rounded-lg overflow-hidden">
@@ -487,13 +519,11 @@ $employees = $pdo->query("
                     </table>
                 </div>
 
-                <!-- Legal/Signature Section for Printed Document (Handover & Return) -->
                 <div class="pt-6 border-t mt-6 space-y-6">
                     <p class="text-xs text-slate-500 italic">
                         I hereby acknowledge the receipt/return of the IT assets listed above. Handed over assets are in good working condition unless noted otherwise. All assets must be handled in accordance with company IT policies.
                     </p>
 
-                    <!-- ISSUE / HANDOVER SIGN-OUT SECTION -->
                     <div>
                         <h4 class="text-xs font-bold uppercase text-slate-600 mb-3 border-b pb-1">1. Issue / Handover Sign-Out</h4>
                         <div class="grid grid-cols-2 gap-12">
@@ -510,7 +540,6 @@ $employees = $pdo->query("
                         </div>
                     </div>
 
-                    <!-- ASSET RETURN SIGN-IN SECTION -->
                     <div>
                         <h4 class="text-xs font-bold uppercase text-slate-600 mb-3 border-b pb-1">2. Asset Return Sign-In</h4>
                         <div class="grid grid-cols-2 gap-12">
@@ -538,7 +567,56 @@ $employees = $pdo->query("
     </main>
 
     <script>
-        // Populate modal with employee data
+        // Print All Visible/Filtered Employees Table
+        function printAllEmployees() {
+            const rows = document.querySelectorAll('.emp-row');
+            const printTbody = document.getElementById('allEmployeesPrintTbody');
+            printTbody.innerHTML = '';
+
+            let count = 0;
+            rows.forEach(row => {
+                if (!row.classList.contains('hidden')) {
+                    count++;
+                    const id = row.querySelector('.cell-id')?.innerText.trim() || '';
+                    const name = row.querySelector('.cell-name')?.innerText.trim() || '';
+                    const dept = row.querySelector('.cell-dept')?.innerText.trim() || '';
+                    
+                    const titleDivs = row.querySelectorAll('.cell-title div');
+                    const jobTitle = titleDivs[0]?.innerText.trim() || '';
+                    const office = titleDivs[1]?.innerText.replace('📍', '').trim() || '';
+
+                    const contactDivs = row.querySelectorAll('.cell-contact div');
+                    const email = contactDivs[0]?.innerText.trim() || '';
+                    const phone = contactDivs[1]?.innerText.trim() || '';
+
+                    const status = row.getAttribute('data-status') || '';
+                    const devices = row.querySelector('.cell-devices button')?.innerText.replace('💻', '').trim() || '0 Device(s)';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="p-2 border font-mono font-bold">${escapeHtml(id)}</td>
+                        <td class="p-2 border font-bold">${escapeHtml(name)}</td>
+                        <td class="p-2 border">${escapeHtml(dept)}</td>
+                        <td class="p-2 border">${escapeHtml(jobTitle)}</td>
+                        <td class="p-2 border">${escapeHtml(office)}</td>
+                        <td class="p-2 border">${escapeHtml(email)} ${escapeHtml(phone ? '| ' + phone : '')}</td>
+                        <td class="p-2 border text-center">${escapeHtml(status)}</td>
+                        <td class="p-2 border text-center font-bold">${escapeHtml(devices)}</td>
+                    `;
+                    printTbody.appendChild(tr);
+                }
+            });
+
+            if (count === 0) {
+                alert('No employee records available to print.');
+                return;
+            }
+
+            // Print document view
+            window.print();
+        }
+
+        // Open Single Employee Details Modal
         function openEmployeePrintDetails(emp) {
             let assets = [];
             try {
@@ -588,7 +666,7 @@ $employees = $pdo->query("
             document.getElementById('printEmpModal').classList.remove('hidden');
         }
 
-        // Direct function to populate modal and trigger print window
+        // Print single employee document
         function printEmployeeDocument(emp) {
             openEmployeePrintDetails(emp);
             setTimeout(() => {
