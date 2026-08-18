@@ -25,15 +25,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
     fputs($output, "\xEF\xBB\xBF"); // UTF-8 BOM
 
     fputcsv($output, [
-        'ID', 'Asset Tag', 'Brand', 'Model', 'Category', 
+        'ID', 'Asset Tag', 'Brand', 'Model', 'Serial Number', 'Category', 
         'Status', 'Condition', 'Damage Type', 'Damage Notes', 
-        'Assigned Employee', 'Assigned Department', 'Purchase Date', 'Created At'
+        'Assigned Employee', 'Assigned Department', 'Purchase Date', 'Purchase Price', 
+        'Warranty Expiry', 'Created At'
     ]);
 
-    $exportSql = "SELECT a.id, a.asset_tag, a.brand, a.model, c.name AS category_name, 
+    $exportSql = "SELECT a.id, a.asset_tag, a.brand, a.model, a.serial_number, c.name AS category_name, 
                          a.status, a.condition_status, a.damage_type, a.damage_notes, 
                          e.full_name AS employee_name, d.name AS department_name, 
-                         a.purchase_date, a.created_at
+                         a.purchase_date, a.purchase_price, a.warranty_expiry, a.created_at
                   FROM assets a
                   LEFT JOIN categories c ON a.category_id = c.id
                   LEFT JOIN departments d ON a.assigned_department_id = d.id
@@ -43,12 +44,12 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
     $stmt = $pdo->query($exportSql);
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         fputcsv($output, [
-            $row['id'], $row['asset_tag'], $row['brand'], $row['model'],
+            $row['id'], $row['asset_tag'], $row['brand'], $row['model'], $row['serial_number'] ?? '',
             $row['category_name'] ?? 'Uncategorized', $row['status'],
             $row['condition_status'], $row['damage_type'] ?? 'None',
             $row['damage_notes'] ?? '', $row['employee_name'] ?? 'Unassigned',
             $row['department_name'] ?? 'N/A', $row['purchase_date'] ?? 'N/A',
-            $row['created_at'] ?? ''
+            $row['purchase_price'] ?? '', $row['warranty_expiry'] ?? '', $row['created_at'] ?? ''
         ]);
     }
 
@@ -70,28 +71,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $asset_tag        = trim($_POST['asset_tag']);
                 $brand            = trim($_POST['brand']);
                 $model            = trim($_POST['model']);
+                $serial_number    = trim($_POST['serial_number'] ?? '');
                 $category_id      = !empty($_POST['category_id']) ? $_POST['category_id'] : null;
                 $purchase_date    = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
+                $purchase_price   = !empty($_POST['purchase_price']) ? $_POST['purchase_price'] : null;
+                $warranty_expiry  = !empty($_POST['warranty_expiry']) ? $_POST['warranty_expiry'] : null;
                 $status           = $_POST['status'];
                 $condition_status = $_POST['condition_status'];
                 $damage_type      = $_POST['damage_type'];
-                $damage_notes     = trim($_POST['damage_notes']);
+                $damage_notes     = trim($_POST['damage_notes'] ?? '');
+                $department_id    = !empty($_POST['assigned_department_id']) ? $_POST['assigned_department_id'] : null;
+                $employee_id      = !empty($_POST['assigned_employee_id']) ? $_POST['assigned_employee_id'] : null;
+
+                $updatedSpecs = json_encode([
+                    'cpu'     => $_POST['cpu'] ?? '',
+                    'ram'     => $_POST['ram'] ?? '',
+                    'storage' => $_POST['storage'] ?? '',
+                    'os'      => $_POST['os'] ?? ''
+                ]);
 
                 $stmt = $pdo->prepare("
                     UPDATE assets 
-                    SET asset_tag = ?, brand = ?, model = ?, category_id = ?, 
-                        purchase_date = ?, status = ?, condition_status = ?, 
-                        damage_type = ?, damage_notes = ? 
+                    SET asset_tag = ?, brand = ?, model = ?, serial_number = ?, category_id = ?, 
+                        purchase_date = ?, purchase_price = ?, warranty_expiry = ?, specs = ?, 
+                        status = ?, condition_status = ?, damage_type = ?, damage_notes = ?, 
+                        assigned_department_id = ?, assigned_employee_id = ? 
                     WHERE id = ?
                 ");
                 $stmt->execute([
-                    $asset_tag, $brand, $model, $category_id, 
-                    $purchase_date, $status, $condition_status, 
-                    $damage_type, $damage_notes, $asset_id
+                    $asset_tag, $brand, $model, $serial_number, $category_id, 
+                    $purchase_date, $purchase_price, $warranty_expiry, $updatedSpecs, 
+                    $status, $condition_status, $damage_type, $damage_notes, 
+                    $department_id, $employee_id, $asset_id
                 ]);
 
                 if (function_exists('logAudit')) {
-                    logAudit($pdo, $asset_tag, 'UPDATE', "Updated asset details ($brand $model)");
+                    logAudit($pdo, $asset_tag, 'UPDATE', "Updated full asset details ($brand $model)");
                 }
                 $updateMessage = "Asset updated successfully!";
             } catch (PDOException $e) {
@@ -181,9 +196,9 @@ if (!empty($selectedStatus)) {
     $queryParams[] = $selectedStatus;
 }
 if (!empty($searchQuery)) {
-    $whereClauses[] = "(a.asset_tag LIKE ? OR a.brand LIKE ? OR a.model LIKE ? OR e.full_name LIKE ?)";
+    $whereClauses[] = "(a.asset_tag LIKE ? OR a.brand LIKE ? OR a.model LIKE ? OR a.serial_number LIKE ? OR e.full_name LIKE ?)";
     $term = "%$searchQuery%";
-    $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term;
+    $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term;
 }
 
 $whereSql = !empty($whereClauses) ? "WHERE " . implode(" AND ", $whereClauses) : "";
@@ -280,7 +295,7 @@ $totalFilteredCount = count($assets);
         <!-- Filter & Search Toolbar -->
         <form method="GET" action="view_assets.php" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap gap-3 items-center no-print">
             <div class="flex-1 min-w-[200px]">
-                <input type="text" name="search" value="<?= htmlspecialchars($searchQuery) ?>" placeholder="Search Tag, Model, Brand or Assigned Employee..." class="w-full border p-2 rounded text-sm">
+                <input type="text" name="search" value="<?= htmlspecialchars($searchQuery) ?>" placeholder="Search Tag, Model, Brand, Serial or Assigned Employee..." class="w-full border p-2 rounded text-sm">
             </div>
             
             <div>
@@ -406,11 +421,11 @@ $totalFilteredCount = count($assets);
         </div>
     </main>
 
-    <!-- Modal 1: Edit Asset Modal -->
+    <!-- Modal 1: Complete Edit Asset Modal -->
     <div id="editModal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 no-print">
-        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="text-lg font-bold text-slate-800">Edit Asset Details</h3>
+                <h3 class="text-lg font-bold text-slate-800">Edit Full Asset Details</h3>
                 <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
             </div>
 
@@ -418,6 +433,7 @@ $totalFilteredCount = count($assets);
                 <input type="hidden" name="action" value="edit_asset">
                 <input type="hidden" name="asset_id" id="edit_asset_id">
 
+                <!-- Asset Identification & Basic Info -->
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Asset Tag *</label>
@@ -434,7 +450,7 @@ $totalFilteredCount = count($assets);
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Brand *</label>
                         <input type="text" name="brand" id="edit_brand" required class="w-full border p-2 rounded text-sm">
@@ -443,13 +459,53 @@ $totalFilteredCount = count($assets);
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Model *</label>
                         <input type="text" name="model" id="edit_model" required class="w-full border p-2 rounded text-sm">
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Serial Number</label>
+                        <input type="text" name="serial_number" id="edit_serial_number" class="w-full border p-2 rounded text-sm font-mono">
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <!-- Specs Breakdown -->
+                <div class="border-t pt-3">
+                    <label class="block text-xs font-bold uppercase mb-2 text-slate-500">Hardware Specifications</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">CPU</label>
+                            <input type="text" name="cpu" id="edit_cpu" placeholder="e.g., Intel i7 / M1" class="w-full border p-2 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">RAM</label>
+                            <input type="text" name="ram" id="edit_ram" placeholder="e.g., 16GB" class="w-full border p-2 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">Storage</label>
+                            <input type="text" name="storage" id="edit_storage" placeholder="e.g., 512GB SSD" class="w-full border p-2 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-600 mb-1">OS</label>
+                            <input type="text" name="os" id="edit_os" placeholder="e.g., Windows 11 Pro" class="w-full border p-2 rounded text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial & Expiry Dates -->
+                <div class="border-t pt-3 grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Purchase Date</label>
                         <input type="date" name="purchase_date" id="edit_purchase_date" class="w-full border p-2 rounded text-sm">
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Purchase Price ($)</label>
+                        <input type="number" step="0.01" name="purchase_price" id="edit_purchase_price" class="w-full border p-2 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Warranty Expiry</label>
+                        <input type="date" name="warranty_expiry" id="edit_warranty_expiry" class="w-full border p-2 rounded text-sm">
+                    </div>
+                </div>
+
+                <!-- Status & Damage Conditions -->
+                <div class="border-t pt-3 grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Status *</label>
                         <select name="status" id="edit_status" required class="w-full border p-2 rounded text-sm bg-white">
@@ -459,9 +515,6 @@ $totalFilteredCount = count($assets);
                             <option value="Retired">Retired</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Condition *</label>
                         <select name="condition_status" id="edit_condition_status" required class="w-full border p-2 rounded text-sm bg-white">
@@ -490,6 +543,30 @@ $totalFilteredCount = count($assets);
                 <div>
                     <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Damage Notes / Remarks</label>
                     <textarea name="damage_notes" id="edit_damage_notes" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
+                </div>
+
+                <!-- Assignments -->
+                <div class="border-t pt-3 grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned Department</label>
+                        <select name="assigned_department_id" id="edit_assigned_department_id" class="w-full border p-2 rounded text-sm bg-white">
+                            <option value="">Unassigned</option>
+                            <?php foreach ($departments as $dept): ?>
+                                <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned Employee</label>
+                        <select name="assigned_employee_id" id="edit_assigned_employee_id" class="w-full border p-2 rounded text-sm bg-white">
+                            <option value="">Unassigned</option>
+                            <?php foreach ($employees as $emp): ?>
+                                <option value="<?= $emp['id'] ?>">
+                                    <?= htmlspecialchars($emp['full_name']) ?> (<?= htmlspecialchars($emp['employee_id']) ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-3 border-t">
@@ -580,12 +657,31 @@ $totalFilteredCount = count($assets);
             document.getElementById('edit_asset_tag').value = asset.asset_tag || '';
             document.getElementById('edit_brand').value = asset.brand || '';
             document.getElementById('edit_model').value = asset.model || '';
+            document.getElementById('edit_serial_number').value = asset.serial_number || '';
             document.getElementById('edit_category_id').value = asset.category_id || '';
             document.getElementById('edit_purchase_date').value = asset.purchase_date || '';
+            document.getElementById('edit_purchase_price').value = asset.purchase_price || '';
+            document.getElementById('edit_warranty_expiry').value = asset.warranty_expiry || '';
             document.getElementById('edit_status').value = asset.status || 'In Stock';
             document.getElementById('edit_condition_status').value = asset.condition_status || 'Good';
             document.getElementById('edit_damage_type').value = asset.damage_type || 'None';
             document.getElementById('edit_damage_notes').value = asset.damage_notes || '';
+            document.getElementById('edit_assigned_department_id').value = asset.assigned_department_id || '';
+            document.getElementById('edit_assigned_employee_id').value = asset.assigned_employee_id || '';
+
+            // Parse specifications JSON
+            let specs = {};
+            try {
+                specs = typeof asset.specs === 'string' ? JSON.parse(asset.specs) : (asset.specs || {});
+            } catch (e) {
+                specs = {};
+            }
+
+            document.getElementById('edit_cpu').value = specs.cpu || '';
+            document.getElementById('edit_ram').value = specs.ram || '';
+            document.getElementById('edit_storage').value = specs.storage || '';
+            document.getElementById('edit_os').value = specs.os || '';
+
             document.getElementById('editModal').classList.remove('hidden');
         }
 
