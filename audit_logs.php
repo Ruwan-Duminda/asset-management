@@ -3,6 +3,44 @@ require_once 'db.php';
 require_once 'auth_helpers.php';
 checkAccess(['admin']);
 
+$currentUserId   = $_SESSION['user_id'] ?? null;
+$currentUserName = $_SESSION['user_name'] ?? $_SESSION['full_name'] ?? 'Admin';
+
+$message = '';
+$errorMessage = '';
+
+// Handle POST Clear Logs Request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'clear_logs') {
+    try {
+        $pdo->beginTransaction();
+
+        // 1. Delete/Truncate all records from audit_logs
+        $pdo->exec("DELETE FROM audit_logs");
+
+        // 2. Insert a single new record logging that the audit trail was cleared by the current user
+        $stmt = $pdo->prepare("
+            INSERT INTO audit_logs (user_id, action, asset_tag, details, created_at) 
+            VALUES (?, 'DELETE', 'SYSTEM', ?, NOW())
+        ");
+        $logDetails = "Deleted all audit logs records by " . $currentUserName;
+        $stmt->execute([$currentUserId, $logDetails]);
+
+        $pdo->commit();
+
+        header("Location: audit_logs.php?cleared=success");
+        exit();
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $errorMessage = "Error clearing logs: " . $e->getMessage();
+    }
+}
+
+if (isset($_GET['cleared']) && $_GET['cleared'] === 'success') {
+    $message = "All audit logs have been successfully cleared and recorded.";
+}
+
 $action = $_GET['action'] ?? '';
 $from   = $_GET['from'] ?? '';
 $to     = $_GET['to'] ?? '';
@@ -46,14 +84,36 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
     <?php renderNav(); ?>
     <main class="max-w-7xl mx-auto px-4 pb-12 space-y-6">
         
-        <div class="flex justify-between items-center">
+        <?php if (!empty($message)): ?>
+            <div class="p-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold flex justify-between items-center">
+                <span>✅ <?= htmlspecialchars($message) ?></span>
+                <button onclick="this.parentElement.remove()" class="text-emerald-600 hover:text-emerald-900">&times;</button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($errorMessage)): ?>
+            <div class="p-4 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 text-sm font-semibold flex justify-between items-center">
+                <span>⚠️ <?= htmlspecialchars($errorMessage) ?></span>
+                <button onclick="this.parentElement.remove()" class="text-rose-600 hover:text-rose-900">&times;</button>
+            </div>
+        <?php endif; ?>
+
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h1 class="text-2xl font-bold">System Audit Logs (Admin Only)</h1>
                 <p class="text-sm text-slate-500">Complete security trail of creation, modification, and deletion events.</p>
             </div>
-            <a href="<?= htmlspecialchars($exportUrl) ?>" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center space-x-2">
-                <span>📥</span> <span>Export CSV</span>
-            </a>
+            <div class="flex items-center space-x-2">
+                <form method="POST" onsubmit="return confirm('⚠️ WARNING: Are you sure you want to delete ALL audit logs? This action cannot be undone.');">
+                    <input type="hidden" name="action_type" value="clear_logs">
+                    <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center space-x-2 transition">
+                        <span>🗑️</span> <span>Clear All Logs</span>
+                    </button>
+                </form>
+                <a href="<?= htmlspecialchars($exportUrl) ?>" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center space-x-2 transition">
+                    <span>📥</span> <span>Export CSV</span>
+                </a>
+            </div>
         </div>
 
         <form method="GET" class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4 text-sm">
@@ -87,22 +147,28 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
                     <tr><th class="p-3">Timestamp</th><th class="p-3">Performed By</th><th class="p-3">Action</th><th class="p-3">Asset Tag</th><th class="p-3">Audit Details</th></tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                    <?php foreach ($logs as $l): ?>
+                    <?php if (empty($logs)): ?>
                         <tr>
-                            <td class="p-3 text-xs text-slate-500 font-mono"><?= $l['created_at'] ?></td>
-                            <td class="p-3 font-semibold"><?= htmlspecialchars($l['full_name'] ?? 'System') ?></td>
-                            <td class="p-3">
-                                <span class="px-2 py-0.5 text-xs font-bold rounded 
-                                    <?= $l['action'] === 'CREATE' ? 'bg-emerald-100 text-emerald-800' : '' ?>
-                                    <?= $l['action'] === 'UPDATE' ? 'bg-blue-100 text-blue-800' : '' ?>
-                                    <?= $l['action'] === 'DELETE' ? 'bg-red-100 text-red-800' : '' ?>">
-                                    <?= $l['action'] ?>
-                                </span>
-                            </td>
-                            <td class="p-3 font-mono font-bold text-indigo-600"><?= htmlspecialchars($l['asset_tag']) ?></td>
-                            <td class="p-3 text-slate-600"><?= htmlspecialchars($l['details']) ?></td>
+                            <td colspan="5" class="p-6 text-center text-slate-400 italic">No audit logs found.</td>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php else: ?>
+                        <?php foreach ($logs as $l): ?>
+                            <tr>
+                                <td class="p-3 text-xs text-slate-500 font-mono"><?= $l['created_at'] ?></td>
+                                <td class="p-3 font-semibold"><?= htmlspecialchars($l['full_name'] ?? 'System') ?></td>
+                                <td class="p-3">
+                                    <span class="px-2 py-0.5 text-xs font-bold rounded 
+                                        <?= $l['action'] === 'CREATE' ? 'bg-emerald-100 text-emerald-800' : '' ?>
+                                        <?= $l['action'] === 'UPDATE' ? 'bg-blue-100 text-blue-800' : '' ?>
+                                        <?= $l['action'] === 'DELETE' ? 'bg-red-100 text-red-800' : '' ?>">
+                                        <?= $l['action'] ?>
+                                    </span>
+                                </td>
+                                <td class="p-3 font-mono font-bold text-indigo-600"><?= htmlspecialchars($l['asset_tag']) ?></td>
+                                <td class="p-3 text-slate-600"><?= htmlspecialchars($l['details']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
