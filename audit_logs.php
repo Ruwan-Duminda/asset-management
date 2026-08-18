@@ -79,20 +79,32 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
     <meta charset="UTF-8">
     <title>ITAM - Audit Log</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff !important; color: #000 !important; }
+            main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+            .print-table { width: 100% !important; border-collapse: collapse !important; }
+            .print-table th, .print-table td { border: 1px solid #cbd5e1 !important; padding: 8px !important; }
+        }
+    </style>
 </head>
 <body class="bg-slate-100 text-slate-800">
-    <?php renderNav(); ?>
+    <div class="no-print">
+        <?php renderNav(); ?>
+    </div>
+
     <main class="max-w-7xl mx-auto px-4 pb-12 space-y-6">
         
         <?php if (!empty($message)): ?>
-            <div class="p-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold flex justify-between items-center">
+            <div class="p-4 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm font-semibold flex justify-between items-center no-print">
                 <span>✅ <?= htmlspecialchars($message) ?></span>
                 <button onclick="this.parentElement.remove()" class="text-emerald-600 hover:text-emerald-900">&times;</button>
             </div>
         <?php endif; ?>
 
         <?php if (!empty($errorMessage)): ?>
-            <div class="p-4 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 text-sm font-semibold flex justify-between items-center">
+            <div class="p-4 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 text-sm font-semibold flex justify-between items-center no-print">
                 <span>⚠️ <?= htmlspecialchars($errorMessage) ?></span>
                 <button onclick="this.parentElement.remove()" class="text-rose-600 hover:text-rose-900">&times;</button>
             </div>
@@ -103,20 +115,23 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
                 <h1 class="text-2xl font-bold">System Audit Logs (Admin Only)</h1>
                 <p class="text-sm text-slate-500">Complete security trail of creation, modification, and deletion events.</p>
             </div>
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2 no-print">
+                <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-xs shadow flex items-center space-x-2 transition">
+                    <span>🖨️</span> <span>Print Logs</span>
+                </button>
+                <a href="<?= htmlspecialchars($exportUrl) ?>" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow flex items-center space-x-2 transition">
+                    <span>📥</span> <span>Export CSV</span>
+                </a>
                 <form method="POST" onsubmit="return confirm('⚠️ WARNING: Are you sure you want to delete ALL audit logs? This action cannot be undone.');">
                     <input type="hidden" name="action_type" value="clear_logs">
-                    <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center space-x-2 transition">
+                    <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow flex items-center space-x-2 transition">
                         <span>🗑️</span> <span>Clear All Logs</span>
                     </button>
                 </form>
-                <a href="<?= htmlspecialchars($exportUrl) ?>" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center space-x-2 transition">
-                    <span>📥</span> <span>Export CSV</span>
-                </a>
             </div>
         </div>
 
-        <form method="GET" class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4 text-sm">
+        <form method="GET" class="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center gap-4 text-sm no-print">
             <div>
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Action Type</label>
                 <select name="action" class="border p-2 rounded">
@@ -142,7 +157,7 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
         </form>
 
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-            <table class="w-full text-left text-sm">
+            <table class="w-full text-left text-sm print-table">
                 <thead class="bg-slate-50 border-b text-xs text-slate-500 uppercase">
                     <tr><th class="p-3">Timestamp</th><th class="p-3">Performed By</th><th class="p-3">Action</th><th class="p-3">Asset Tag</th><th class="p-3">Audit Details</th></tr>
                 </thead>
@@ -173,6 +188,8 @@ $exportUrl = "export_audit.php?" . http_build_query($_GET);
             </table>
         </div>
     </main>
-    <?php renderFooter(); ?>
+    <div class="no-print">
+        <?php renderFooter(); ?>
+    </div>
 </body>
 </html>
