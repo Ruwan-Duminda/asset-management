@@ -23,7 +23,6 @@ function getCategoryPrefix($categoryName) {
 
 // Function to generate next auto asset tag number based on prefix
 function generateNextAssetTag($pdo, $prefix) {
-    // Search existing tags starting with prefix
     $stmt = $pdo->prepare("SELECT asset_tag FROM assets WHERE asset_tag LIKE ? ORDER BY id DESC");
     $stmt->execute([$prefix . '%']);
     $existingTags = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -65,17 +64,18 @@ $departments = $pdo->query("SELECT * FROM departments ORDER BY name ASC")->fetch
 $employees   = $pdo->query("SELECT * FROM employees WHERE status = 'Active' ORDER BY full_name ASC")->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $cat_id      = $_POST['category_id'];
-    $brand       = trim($_POST['brand']);
-    $model       = trim($_POST['model']);
-    $serial      = trim($_POST['serial_number']);
-    $price       = !empty($_POST['purchase_price']) ? $_POST['purchase_price'] : 0.00;
-    $p_date      = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
-    $w_expiry    = !empty($_POST['warranty_expiry']) ? $_POST['warranty_expiry'] : null;
-    $dept_id     = !empty($_POST['assigned_department_id']) ? $_POST['assigned_department_id'] : null;
-    $emp_id      = !empty($_POST['assigned_employee_id']) ? $_POST['assigned_employee_id'] : null;
-    $status      = $_POST['status'];
-    $condition   = $_POST['condition_status'];
+    $cat_id        = $_POST['category_id'];
+    $other_details = trim($_POST['other_category_type'] ?? '');
+    $brand         = trim($_POST['brand']);
+    $model         = trim($_POST['model']);
+    $serial        = trim($_POST['serial_number']);
+    $price         = !empty($_POST['purchase_price']) ? $_POST['purchase_price'] : 0.00;
+    $p_date        = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
+    $w_expiry      = !empty($_POST['warranty_expiry']) ? $_POST['warranty_expiry'] : null;
+    $dept_id       = !empty($_POST['assigned_department_id']) ? $_POST['assigned_department_id'] : null;
+    $emp_id        = !empty($_POST['assigned_employee_id']) ? $_POST['assigned_employee_id'] : null;
+    $status        = $_POST['status'];
+    $condition     = $_POST['condition_status'];
 
     // Auto generate tag if left empty or provided manually
     if (!empty($_POST['asset_tag'])) {
@@ -88,11 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tag = generateNextAssetTag($pdo, $prefix);
     }
 
+    // Build JSON Specs including custom type if "Other" category is chosen
     $specs = json_encode([
-        'cpu'     => $_POST['cpu'] ?? '',
-        'ram'     => $_POST['ram'] ?? '',
-        'storage' => $_POST['storage'] ?? '',
-        'os'      => $_POST['os'] ?? ''
+        'custom_type' => $other_details,
+        'cpu'         => $_POST['cpu'] ?? '',
+        'ram'         => $_POST['ram'] ?? '',
+        'storage'     => $_POST['storage'] ?? '',
+        'os'          => $_POST['os'] ?? ''
     ]);
 
     $stmt = $pdo->prepare("
@@ -130,10 +132,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-bold uppercase mb-1">Category *</label>
-                    <select name="category_id" id="category_id" required class="w-full border p-2 rounded text-sm bg-white" onchange="autoGenerateTag()">
+                    <select name="category_id" id="category_id" required class="w-full border p-2 rounded text-sm bg-white" onchange="handleCategoryChange()">
                         <option value="">-- Select Category --</option>
                         <?php foreach ($categories as $c): ?>
-                            <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+                            <option value="<?= $c['id'] ?>" data-name="<?= htmlspecialchars(strtolower($c['name'])) ?>">
+                                <?= htmlspecialchars($c['name']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -144,6 +148,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <button type="button" onclick="autoGenerateTag()" title="Refresh Tag" class="px-3 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">🔄</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Dynamic Text Input for "Other" Category -->
+            <div id="other_category_container" class="hidden transition-all duration-200 bg-amber-50 p-3 rounded border border-amber-200">
+                <label class="block text-xs font-bold uppercase mb-1 text-amber-900">Specify Device Type / Category Description *</label>
+                <input type="text" name="other_category_type" id="other_category_type" placeholder="e.g. Barcode Scanner, Projector, Smart TV" class="w-full border border-amber-300 p-2 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-amber-500">
             </div>
 
             <div class="grid grid-cols-3 gap-4">
@@ -232,6 +242,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </main>
 
     <script>
+        function handleCategoryChange() {
+            const select = document.getElementById('category_id');
+            const selectedOption = select.options[select.selectedIndex];
+            const catName = selectedOption.getAttribute('data-name') || '';
+            
+            const otherContainer = document.getElementById('other_category_container');
+            const otherInput = document.getElementById('other_category_type');
+
+            if (catName.includes('other')) {
+                otherContainer.classList.remove('hidden');
+                otherInput.required = true;
+            } else {
+                otherContainer.classList.add('hidden');
+                otherInput.required = false;
+                otherInput.value = '';
+            }
+
+            autoGenerateTag();
+        }
+
         function autoGenerateTag() {
             const catId = document.getElementById('category_id').value;
             const tagInput = document.getElementById('asset_tag');
