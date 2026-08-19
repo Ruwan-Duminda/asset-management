@@ -416,10 +416,9 @@ $totalFilteredCount = count($assets);
                                             <button onclick='openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES, "UTF-8") ?>)' 
                                                     class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded font-medium">✏️ Edit</button>
 
-                                            <?php if (empty($a['assigned_employee_id']) && empty($a['assigned_department_id'])): ?>
-                                                <button onclick="openAssignModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
-                                                        class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-medium">👤 Assign</button>
-                                            <?php endif; ?>
+                                            <!-- Assign button is always visible -->
+                                            <button onclick="openAssignModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
+                                                    class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-medium">👤 Assign</button>
 
                                             <?php if ($userRole === 'admin'): ?>
                                                 <button onclick="openDeleteModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
