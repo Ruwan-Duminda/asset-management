@@ -209,7 +209,7 @@ if (!empty($searchQuery)) {
 
 $whereSql = !empty($whereClauses) ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
-// UPDATED SQL: Includes Employee Join
+// Fetch Assets Query
 $sql = "SELECT a.*, 
                c.name AS category_name, 
                d.name AS department_name,
@@ -358,9 +358,9 @@ $totalFilteredCount = count($assets);
                         <?php else: ?>
                             <?php foreach ($assets as $a): ?>
                                 <?php 
-                                    // Parse specs JSON to check for custom category input
+                                    // Extract custom category type if present
                                     $specsObj = !empty($a['specs']) ? json_decode($a['specs'], true) : [];
-                                    $customType = $a['other_category_type'] ?? ($specsObj['custom_type'] ?? '');
+                                    $customType = !empty($a['other_category_type']) ? $a['other_category_type'] : ($specsObj['custom_type'] ?? '');
                                 ?>
                                 <tr class="hover:bg-slate-50/50 transition">
                                     <td class="py-3 px-4 font-mono font-bold text-indigo-600">
@@ -372,7 +372,7 @@ $totalFilteredCount = count($assets);
                                         </div>
                                         <?php if (!empty($customType)): ?>
                                             <div class="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block mt-1">
-                                                📌 <?= htmlspecialchars($customType) ?>
+                                                📌 Other - <?= htmlspecialchars($customType) ?>
                                             </div>
                                         <?php endif; ?>
                                     </td>
@@ -416,7 +416,6 @@ $totalFilteredCount = count($assets);
                                             <button onclick='openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES, "UTF-8") ?>)' 
                                                     class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded font-medium">✏️ Edit</button>
 
-                                            <!-- UPDATED CONDITION: Hide assign button if EITHER employee OR department is assigned -->
                                             <?php if (empty($a['assigned_employee_id']) && empty($a['assigned_department_id'])): ?>
                                                 <button onclick="openAssignModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
                                                         class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-medium">👤 Assign</button>
@@ -437,7 +436,7 @@ $totalFilteredCount = count($assets);
         </div>
     </main>
 
-    <!-- Modal 1: Complete Edit Asset Modal -->
+    <!-- Modal 1: Edit Asset Modal -->
     <div id="editModal" class="fixed inset-0 z-50 hidden bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b pb-3">
@@ -449,7 +448,6 @@ $totalFilteredCount = count($assets);
                 <input type="hidden" name="action" value="edit_asset">
                 <input type="hidden" name="asset_id" id="edit_asset_id">
 
-                <!-- Asset Identification & Basic Info -->
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Asset Tag *</label>
@@ -481,7 +479,6 @@ $totalFilteredCount = count($assets);
                     </div>
                 </div>
 
-                <!-- Specs Breakdown -->
                 <div class="border-t pt-3">
                     <label class="block text-xs font-bold uppercase mb-2 text-slate-500">Hardware Specifications</label>
                     <div class="grid grid-cols-2 gap-3">
@@ -504,7 +501,6 @@ $totalFilteredCount = count($assets);
                     </div>
                 </div>
 
-                <!-- Financial & Expiry Dates -->
                 <div class="border-t pt-3 grid grid-cols-3 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Purchase Date</label>
@@ -520,7 +516,6 @@ $totalFilteredCount = count($assets);
                     </div>
                 </div>
 
-                <!-- Status & Conditions -->
                 <div class="border-t pt-3 grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Status *</label>
@@ -544,7 +539,6 @@ $totalFilteredCount = count($assets);
                     </div>
                 </div>
 
-                <!-- Assignments -->
                 <div class="border-t pt-3 grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned Department</label>
@@ -662,7 +656,6 @@ $totalFilteredCount = count($assets);
             document.getElementById('edit_assigned_department_id').value = asset.assigned_department_id || '';
             document.getElementById('edit_assigned_employee_id').value = asset.assigned_employee_id || '';
 
-            // Parse specifications JSON
             let specs = {};
             try {
                 specs = typeof asset.specs === 'string' ? JSON.parse(asset.specs) : (asset.specs || {});
