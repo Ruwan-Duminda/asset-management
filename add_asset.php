@@ -61,7 +61,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_next_tag' && isset($_GET[
 
 $categories  = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
 $departments = $pdo->query("SELECT * FROM departments ORDER BY name ASC")->fetchAll();
-$employees   = $pdo->query("SELECT * FROM employees WHERE status = 'Active' ORDER BY full_name ASC")->fetchAll();
+
+// Fetch employees safely
+try {
+    $employees = $pdo->query("SELECT * FROM employees WHERE status = 'Active' ORDER BY full_name ASC")->fetchAll();
+} catch (PDOException $e) {
+    $employees = [];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cat_id        = $_POST['category_id'];
@@ -73,9 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $p_date        = !empty($_POST['purchase_date']) ? $_POST['purchase_date'] : null;
     $w_expiry      = !empty($_POST['warranty_expiry']) ? $_POST['warranty_expiry'] : null;
     $dept_id       = !empty($_POST['assigned_department_id']) ? $_POST['assigned_department_id'] : null;
-    $emp_id        = !empty($_POST['assigned_employee_id']) ? $_POST['assigned_employee_id'] : null;
+    $assigned_user = !empty($_POST['assigned_employee_id']) ? $_POST['assigned_employee_id'] : null;
     $status        = $_POST['status'];
-    $condition     = $_POST['condition_status'];
+    $condition     = $_POST['condition_status'] ?? 'New';
 
     // Auto generate tag if left empty or provided manually
     if (!empty($_POST['asset_tag'])) {
@@ -88,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tag = generateNextAssetTag($pdo, $prefix);
     }
 
-    // Build JSON Specs including custom type if "Other" category is chosen
+    // Build JSON Specs including custom category description
     $specs = json_encode([
         'custom_type' => $other_details,
         'cpu'         => $_POST['cpu'] ?? '',
@@ -97,17 +103,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'os'          => $_POST['os'] ?? ''
     ]);
 
+    // Construct text summary for the notes column
+    $notesText = !empty($other_details) ? "Specified Type: " . $other_details : null;
+
+    // Database query mapping directly to your table columns
     $stmt = $pdo->prepare("
         INSERT INTO assets 
-        (asset_tag, category_id, brand, model, serial_number, specs, purchase_price, purchase_date, warranty_expiry, assigned_department_id, assigned_employee_id, status, condition_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (asset_tag, category_id, brand, model, serial_number, specs, purchase_price, purchase_date, warranty_expiry, assigned_department_id, assigned_to_user, status, condition_status, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
-        $tag, $cat_id, $brand, $model, $serial, $specs, $price, $p_date, $w_expiry, $dept_id, $emp_id, $status, $condition
+        $tag, $cat_id, $brand, $model, $serial, $specs, $price, $p_date, $w_expiry, $dept_id, $assigned_user, $status, $condition, $notesText
     ]);
 
-    logAudit($pdo, $tag, 'CREATE', "Added asset {$brand} {$model} with tag {$tag}");
+    if (function_exists('logAudit')) {
+        logAudit($pdo, $tag, 'CREATE', "Added asset {$brand} {$model} with tag {$tag}");
+    }
 
     header("Location: view_assets.php");
     exit();
@@ -207,13 +219,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase mb-1">Assigned Employee</label>
-                    <select name="assigned_employee_id" class="w-full border p-2 rounded text-sm bg-white">
-                        <option value="">Unassigned</option>
-                        <?php foreach ($employees as $e): ?>
-                            <option value="<?= $e['id'] ?>"><?= htmlspecialchars($e['full_name'] . ' (' . $e['employee_id'] . ')') ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label class="block text-xs font-bold uppercase mb-1">Assigned Employee / User</label>
+                    <?php if (!empty($employees)): ?>
+                        <select name="assigned_employee_id" class="w-full border p-2 rounded text-sm bg-white">
+                            <option value="">Unassigned</option>
+                            <?php foreach ($employees as $e): ?>
+                                <option value="<?= htmlspecialchars($e['full_name']) ?>">
+                                    <?= htmlspecialchars($e['full_name'] . (isset($e['employee_id']) ? ' (' . $e['employee_id'] . ')' : '')) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php else: ?>
+                        <input type="text" name="assigned_employee_id" placeholder="e.g. John Doe" class="w-full border p-2 rounded text-sm">
+                    <?php endif; ?>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase mb-1">Status</label>
@@ -221,6 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <option value="In Stock">In Stock</option>
                         <option value="In Use">In Use</option>
                         <option value="Maintenance">Maintenance</option>
+                        <option value="Retired">Retired</option>
                     </select>
                 </div>
             </div>
