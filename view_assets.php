@@ -209,12 +209,15 @@ if (!empty($searchQuery)) {
 
 $whereSql = !empty($whereClauses) ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
+// UPDATED SQL: Includes Employee Join
 $sql = "SELECT a.*, 
                c.name AS category_name, 
-               d.name AS department_name
+               d.name AS department_name,
+               e.full_name AS employee_name
         FROM assets a
         LEFT JOIN categories c ON a.category_id = c.id
         LEFT JOIN departments d ON a.assigned_department_id = d.id
+        LEFT JOIN employees e ON a.assigned_employee_id = e.id
         $whereSql
         ORDER BY a.id DESC";
 
@@ -378,8 +381,8 @@ $totalFilteredCount = count($assets);
                                         <div class="text-xs text-slate-400 font-mono">S/N: <?= htmlspecialchars($a['serial_number'] ?? 'N/A') ?></div>
                                     </td>
                                     <td class="py-3 px-4">
-                                        <?php if (!empty($a['assigned_to_user'])): ?>
-                                            <div class="font-bold text-slate-800">👤 <?= htmlspecialchars($a['assigned_to_user']) ?></div>
+                                        <?php if (!empty($a['employee_name'])): ?>
+                                            <div class="font-bold text-slate-800">👤 <?= htmlspecialchars($a['employee_name']) ?></div>
                                             <div class="text-xs text-slate-500"><?= htmlspecialchars($a['department_name'] ?? 'No Dept') ?></div>
                                         <?php elseif (!empty($a['department_name'])): ?>
                                             <div class="font-semibold text-slate-700">🏢 <?= htmlspecialchars($a['department_name']) ?></div>
@@ -413,7 +416,8 @@ $totalFilteredCount = count($assets);
                                             <button onclick='openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES, "UTF-8") ?>)' 
                                                     class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded font-medium">✏️ Edit</button>
 
-                                            <?php if (empty($a['assigned_to_user'])): ?>
+                                            <!-- UPDATED CONDITION: Hide assign button if EITHER employee OR department is assigned -->
+                                            <?php if (empty($a['assigned_employee_id']) && empty($a['assigned_department_id'])): ?>
                                                 <button onclick="openAssignModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
                                                         class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-medium">👤 Assign</button>
                                             <?php endif; ?>
@@ -552,8 +556,13 @@ $totalFilteredCount = count($assets);
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned User / Employee</label>
-                        <input type="text" name="assigned_employee_id" id="edit_assigned_employee_id" placeholder="User Name" class="w-full border p-2 rounded text-sm">
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned Employee</label>
+                        <select name="assigned_employee_id" id="edit_assigned_employee_id" class="w-full border p-2 rounded text-sm bg-white">
+                            <option value="">Unassigned</option>
+                            <?php foreach ($employees as $emp): ?>
+                                <option value="<?= $emp['id'] ?>"><?= htmlspecialchars($emp['full_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                 </div>
 
@@ -584,8 +593,13 @@ $totalFilteredCount = count($assets);
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assign To Employee / User Name *</label>
-                    <input type="text" name="employee_id" placeholder="e.g. John Doe" class="w-full border p-2 rounded text-sm">
+                    <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assign To Employee</label>
+                    <select name="employee_id" class="w-full border p-2 rounded text-sm bg-white">
+                        <option value="">-- Select Employee --</option>
+                        <?php foreach ($employees as $emp): ?>
+                            <option value="<?= $emp['id'] ?>"><?= htmlspecialchars($emp['full_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
                 <div>
@@ -646,7 +660,7 @@ $totalFilteredCount = count($assets);
             document.getElementById('edit_status').value = asset.status || 'In Stock';
             document.getElementById('edit_condition_status').value = asset.condition_status || 'Good';
             document.getElementById('edit_assigned_department_id').value = asset.assigned_department_id || '';
-            document.getElementById('edit_assigned_employee_id').value = asset.assigned_to_user || '';
+            document.getElementById('edit_assigned_employee_id').value = asset.assigned_employee_id || '';
 
             // Parse specifications JSON
             let specs = {};
