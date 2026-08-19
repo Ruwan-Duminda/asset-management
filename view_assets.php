@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $warranty_expiry  = !empty($_POST['warranty_expiry']) ? $_POST['warranty_expiry'] : null;
                 $status           = $_POST['status'];
                 $condition_status = $_POST['condition_status'];
-                $damage_type      = $_POST['damage_type'];
+                $damage_type      = $_POST['damage_type'] ?? 'None';
                 $damage_notes     = trim($_POST['damage_notes'] ?? '');
                 $department_id    = !empty($_POST['assigned_department_id']) ? $_POST['assigned_department_id'] : null;
                 $employee_id      = !empty($_POST['assigned_employee_id']) ? $_POST['assigned_employee_id'] : null;
@@ -171,7 +171,13 @@ $searchQuery    = trim($_GET['search'] ?? '');
 
 // Fetch helper collections
 $categories  = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
-$employees   = $pdo->query("SELECT id, full_name, employee_id FROM employees ORDER BY full_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+try {
+    $employees   = $pdo->query("SELECT id, full_name, employee_id FROM employees ORDER BY full_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $employees = [];
+}
+
 $departments = $pdo->query("SELECT id, name FROM departments ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 // Category asset count summary breakdown
@@ -196,22 +202,19 @@ if (!empty($selectedStatus)) {
     $queryParams[] = $selectedStatus;
 }
 if (!empty($searchQuery)) {
-    $whereClauses[] = "(a.asset_tag LIKE ? OR a.brand LIKE ? OR a.model LIKE ? OR a.serial_number LIKE ? OR e.full_name LIKE ?)";
+    $whereClauses[] = "(a.asset_tag LIKE ? OR a.brand LIKE ? OR a.model LIKE ? OR a.serial_number LIKE ?)";
     $term = "%$searchQuery%";
-    $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term;
+    $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term; $queryParams[] = $term;
 }
 
 $whereSql = !empty($whereClauses) ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
 $sql = "SELECT a.*, 
                c.name AS category_name, 
-               d.name AS department_name, 
-               e.full_name AS employee_name,
-               e.employee_id AS emp_code
+               d.name AS department_name
         FROM assets a
         LEFT JOIN categories c ON a.category_id = c.id
         LEFT JOIN departments d ON a.assigned_department_id = d.id
-        LEFT JOIN employees e ON a.assigned_employee_id = e.id
         $whereSql
         ORDER BY a.id DESC";
 
@@ -295,7 +298,7 @@ $totalFilteredCount = count($assets);
         <!-- Filter & Search Toolbar -->
         <form method="GET" action="view_assets.php" class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap gap-3 items-center no-print">
             <div class="flex-1 min-w-[200px]">
-                <input type="text" name="search" value="<?= htmlspecialchars($searchQuery) ?>" placeholder="Search Tag, Model, Brand, Serial or Assigned Employee..." class="w-full border p-2 rounded text-sm">
+                <input type="text" name="search" value="<?= htmlspecialchars($searchQuery) ?>" placeholder="Search Tag, Model, Brand, or Serial..." class="w-full border p-2 rounded text-sm">
             </div>
             
             <div>
@@ -351,22 +354,34 @@ $totalFilteredCount = count($assets);
                             </tr>
                         <?php else: ?>
                             <?php foreach ($assets as $a): ?>
+                                <?php 
+                                    // Parse specs JSON to check for custom category input
+                                    $specsObj = !empty($a['specs']) ? json_decode($a['specs'], true) : [];
+                                    $customType = $a['other_category_type'] ?? ($specsObj['custom_type'] ?? '');
+                                ?>
                                 <tr class="hover:bg-slate-50/50 transition">
                                     <td class="py-3 px-4 font-mono font-bold text-indigo-600">
                                         <?= htmlspecialchars($a['asset_tag']) ?>
                                     </td>
                                     <td class="py-3 px-4 font-medium text-slate-700">
-                                        <?= htmlspecialchars($a['category_name'] ?? 'Uncategorized') ?>
+                                        <div>
+                                            <?= htmlspecialchars($a['category_name'] ?? 'Uncategorized') ?>
+                                        </div>
+                                        <?php if (!empty($customType)): ?>
+                                            <div class="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded inline-block mt-1">
+                                                📌 <?= htmlspecialchars($customType) ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="py-3 px-4">
                                         <div class="font-semibold text-slate-800"><?= htmlspecialchars($a['brand'] . ' ' . $a['model']) ?></div>
                                         <div class="text-xs text-slate-400 font-mono">S/N: <?= htmlspecialchars($a['serial_number'] ?? 'N/A') ?></div>
                                     </td>
                                     <td class="py-3 px-4">
-                                        <?php if ($a['employee_name']): ?>
-                                            <div class="font-bold text-slate-800">👤 <?= htmlspecialchars($a['employee_name']) ?></div>
-                                            <div class="text-xs text-slate-500"><?= htmlspecialchars($a['department_name'] ?? 'No Dept') ?> (<?= htmlspecialchars($a['emp_code'] ?? '') ?>)</div>
-                                        <?php elseif ($a['department_name']): ?>
+                                        <?php if (!empty($a['assigned_to_user'])): ?>
+                                            <div class="font-bold text-slate-800">👤 <?= htmlspecialchars($a['assigned_to_user']) ?></div>
+                                            <div class="text-xs text-slate-500"><?= htmlspecialchars($a['department_name'] ?? 'No Dept') ?></div>
+                                        <?php elseif (!empty($a['department_name'])): ?>
                                             <div class="font-semibold text-slate-700">🏢 <?= htmlspecialchars($a['department_name']) ?></div>
                                             <div class="text-xs text-slate-400">Department Assigned</div>
                                         <?php else: ?>
@@ -375,7 +390,7 @@ $totalFilteredCount = count($assets);
                                     </td>
                                     <td class="py-3 px-4">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border bg-slate-50 text-slate-700">
-                                            <?= htmlspecialchars($a['condition_status']) ?>
+                                            <?= htmlspecialchars($a['condition_status'] ?? 'New') ?>
                                         </span>
                                     </td>
                                     <td class="py-3 px-4">
@@ -398,12 +413,9 @@ $totalFilteredCount = count($assets);
                                             <button onclick='openEditModal(<?= htmlspecialchars(json_encode($a), ENT_QUOTES, "UTF-8") ?>)' 
                                                     class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded font-medium">✏️ Edit</button>
 
-                                            <?php if (!$a['assigned_employee_id']): ?>
+                                            <?php if (empty($a['assigned_to_user'])): ?>
                                                 <button onclick="openAssignModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
                                                         class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded font-medium">👤 Assign</button>
-                                            <?php else: ?>
-                                                <button onclick="openReturnModal(<?= $a['id'] ?>, '<?= htmlspecialchars($a['asset_tag'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['brand'] . ' ' . $a['model'], ENT_QUOTES) ?>')" 
-                                                        class="text-xs bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1 rounded font-medium">Return</button>
                                             <?php endif; ?>
 
                                             <?php if ($userRole === 'admin'): ?>
@@ -504,8 +516,8 @@ $totalFilteredCount = count($assets);
                     </div>
                 </div>
 
-                <!-- Status & Damage Conditions -->
-                <div class="border-t pt-3 grid grid-cols-3 gap-3">
+                <!-- Status & Conditions -->
+                <div class="border-t pt-3 grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Status *</label>
                         <select name="status" id="edit_status" required class="w-full border p-2 rounded text-sm bg-white">
@@ -526,23 +538,6 @@ $totalFilteredCount = count($assets);
                             <option value="Damaged">Damaged</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Damage Type</label>
-                        <select name="damage_type" id="edit_damage_type" class="w-full border p-2 rounded text-sm bg-white">
-                            <option value="None">None</option>
-                            <option value="Screen Crack">Screen Crack</option>
-                            <option value="Water Damage">Water Damage</option>
-                            <option value="Battery Swell">Battery Swell</option>
-                            <option value="Keyboard/Port Failure">Keyboard/Port Failure</option>
-                            <option value="Cosmetic/Body Damage">Cosmetic/Body Damage</option>
-                            <option value="Other Hardware Issue">Other Hardware Issue</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Damage Notes / Remarks</label>
-                    <textarea name="damage_notes" id="edit_damage_notes" rows="2" class="w-full border p-2 rounded text-sm"></textarea>
                 </div>
 
                 <!-- Assignments -->
@@ -557,15 +552,8 @@ $totalFilteredCount = count($assets);
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned Employee</label>
-                        <select name="assigned_employee_id" id="edit_assigned_employee_id" class="w-full border p-2 rounded text-sm bg-white">
-                            <option value="">Unassigned</option>
-                            <?php foreach ($employees as $emp): ?>
-                                <option value="<?= $emp['id'] ?>">
-                                    <?= htmlspecialchars($emp['full_name']) ?> (<?= htmlspecialchars($emp['employee_id']) ?>)
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assigned User / Employee</label>
+                        <input type="text" name="assigned_employee_id" id="edit_assigned_employee_id" placeholder="User Name" class="w-full border p-2 rounded text-sm">
                     </div>
                 </div>
 
@@ -596,15 +584,8 @@ $totalFilteredCount = count($assets);
                 </div>
 
                 <div>
-                    <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assign To Employee *</label>
-                    <select name="employee_id" class="w-full border p-2 rounded text-sm bg-white">
-                        <option value="">-- Select Employee --</option>
-                        <?php foreach ($employees as $emp): ?>
-                            <option value="<?= $emp['id'] ?>">
-                                <?= htmlspecialchars($emp['full_name']) ?> (<?= htmlspecialchars($emp['employee_id']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label class="block text-xs font-bold uppercase mb-1 text-slate-700">Assign To Employee / User Name *</label>
+                    <input type="text" name="employee_id" placeholder="e.g. John Doe" class="w-full border p-2 rounded text-sm">
                 </div>
 
                 <div>
@@ -664,10 +645,8 @@ $totalFilteredCount = count($assets);
             document.getElementById('edit_warranty_expiry').value = asset.warranty_expiry || '';
             document.getElementById('edit_status').value = asset.status || 'In Stock';
             document.getElementById('edit_condition_status').value = asset.condition_status || 'Good';
-            document.getElementById('edit_damage_type').value = asset.damage_type || 'None';
-            document.getElementById('edit_damage_notes').value = asset.damage_notes || '';
             document.getElementById('edit_assigned_department_id').value = asset.assigned_department_id || '';
-            document.getElementById('edit_assigned_employee_id').value = asset.assigned_employee_id || '';
+            document.getElementById('edit_assigned_employee_id').value = asset.assigned_to_user || '';
 
             // Parse specifications JSON
             let specs = {};
